@@ -2,10 +2,7 @@ package api
 
 import (
 	"fmt"
-	"io"
-	"math/rand"
-	"net"
-	"time"
+	"net/http"
 
 	"github.com/afroash/proxy-ash/internal/config"
 	"github.com/afroash/proxy-ash/internal/metrics"
@@ -14,6 +11,7 @@ import (
 type Server struct {
 	cfg     *config.Config
 	metrics *metrics.Collector
+	server  *http.Server
 }
 
 func NewServer(cfg *config.Config, metrics *metrics.Collector) *Server {
@@ -24,70 +22,43 @@ func NewServer(cfg *config.Config, metrics *metrics.Collector) *Server {
 }
 
 func (s *Server) Start() error {
-	listener, err := net.Listen("tcp4", s.cfg.ListenAddr)
-	if err != nil {
-		return fmt.Errorf("failed to start server: %w", err)
-	}
-	defer listener.Close()
+	// Set up HTTP routes
+	mux := http.NewServeMux()
 
-	fmt.Printf("Proxy server listening on %s\n", s.cfg.ListenAddr)
+	// Metrics endpoint
+	mux.HandleFunc("/metrics", s.handleMetrics)
 
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			continue
-		}
-		go s.handleConnection(conn)
+	// Create HTTP server
+	s.server = &http.Server{
+		Addr:    fmt.Sprintf("localhost:%d", 8081), // Use a different port for the API server
+		Handler: mux,
 	}
+
+	fmt.Printf("API server listening on %s\n", s.server.Addr)
+	return s.server.ListenAndServe()
 }
 
-func (s *Server) handleConnection(downstream net.Conn) {
-	connID := fmt.Sprintf("%s-%d", downstream.RemoteAddr(), time.Now().UnixNano())
-	s.metrics.StartConnection(connID)
-	defer func() {
-		s.metrics.EndConnection(connID)
-		downstream.Close()
-	}()
-
-	upstream, err := net.Dial("tcp", s.cfg.UpstreamAddr)
-	if err != nil {
+func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
+	if !s.cfg.Metrics.Enabled {
+		http.Error(w, "Metrics are disabled", http.StatusServiceUnavailable)
 		return
 	}
-	defer upstream.Close()
 
-	done := make(chan bool, 2)
-	go s.pipe(upstream, downstream, done, connID)
-	go s.pipe(downstream, upstream, done, connID)
+	// Get metrics data
+	stats := s.metrics.GetStats()
 
-	<-done
+	// Write metrics response
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprintf(w, `{
+		"active_connections": %d,
+		"total_bytes": %d,
+		"average_latency": %f
+	}`, stats.ActiveConnections, stats.TotalBytes, stats.AverageLatency)
 }
 
-func (s *Server) pipe(dst io.Writer, src io.Reader, done chan bool, connID string) {
-	_ = connID
-	buffer := make([]byte, 32*1024)
-	for {
-		// Simulate packet loss if enabled
-		if s.cfg.PacketLoss.Enabled && rand.Float64() < s.cfg.PacketLoss.Percentage {
-			s.metrics.RecordPacketLoss()
-			continue
-		}
-
-		// Simulate latency if enabled
-		if s.cfg.Latency.Enabled {
-			time.Sleep(s.cfg.Latency.Duration)
-		}
-
-		n, err := src.Read(buffer)
-		if err != nil {
-			break
-		}
-
-		_, err = dst.Write(buffer[:n])
-		if err != nil {
-			break
-		}
-
-		s.metrics.RecordBytes(n)
+func (s *Server) Shutdown() error {
+	if s.server != nil {
+		return s.server.Close()
 	}
-	done <- true
+	return nil
 }

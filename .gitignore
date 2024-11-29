@@ -1,0 +1,13 @@
+//Ignore Binary Files
+*.exe
+*.dll
+*.so
+*.dylib
+
+//Ignore Logs
+*.log
+
+//Ignore Temporary Files
+/tmp
+//Ignore air file.
+.air*

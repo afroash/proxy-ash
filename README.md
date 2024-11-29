@@ -92,7 +92,7 @@ Compare the response times and behavior between direct and proxied requests to o
 When metrics are enabled, you can access them at the configured metrics path:
 
 ```bash
-curl http://localhost:8080/metrics
+curl http://localhost:8081/metrics
 ```
 
 Available metrics include:
@@ -100,7 +100,7 @@ Available metrics include:
 - Total bytes transferred
 - Average latency
 - Packet loss statistics
-
+- Log file written to current directory
 ## Project Structure
 
 ```
