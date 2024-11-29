@@ -1,0 +1,22 @@
+listen_addr: ":8080"
+upstream_addr: "localhost:9090"
+
+# Network condition simulation settings
+latency:
+  enabled: true
+  min_ms: 50
+  max_ms: 150
+  duration: "100ms"
+
+packet_loss:
+  enabled: true
+  percentage: 5.0
+
+bandwidth:
+  enabled: true
+  limit_kbps: 1024  # 1 Mbps
+
+# Metrics collection settings
+metrics:
+  enabled: true
+  path: "/metrics"
