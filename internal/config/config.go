@@ -1,15 +1,21 @@
 package config
 
-import "time"
+import (
+	"os"
+	"time"
+
+	"gopkg.in/yaml.v2"
+)
 
 type Config struct {
-	ListenAddr   string
-	UpstreamAddr string
+	ListenAddr   string `yaml:"ListenAddr"`
+	UpstreamAddr string `yaml:"UpstreamAddr"`
+	//Metrics      MetricsConfig `yaml:"metrics"`
 
 	// Network condition simulation settings
 	Latency struct {
-		Enabled  bool          `yaml:"enabled"`
-		Min      int           `yaml:"min_ms"`
+		Enabled  bool          `yaml:"Enabled"`
+		Min      int           `yaml:"Min"`
 		Max      int           `yaml:"max_ms"`
 		Duration time.Duration `yaml:"duration"`
 	} `yaml:"latency"`
@@ -32,7 +38,15 @@ type Config struct {
 }
 
 func Load(path string) (*Config, error) {
-	// TODO lmplematation for loading config from yaml file. maybe we use json.
-	// not sure.
-	return &Config{}, nil
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg Config
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+
+	return &cfg, nil
 }

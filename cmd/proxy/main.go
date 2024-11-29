@@ -22,6 +22,11 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	//check config has loaded.
+	if cfg.ListenAddr == "" || cfg.UpstreamAddr == "" {
+		log.Println("Missing required configuration parameters")
+	}
+
 	// Initialize metrics collector
 	collector := metrics.NewCollector()
 
